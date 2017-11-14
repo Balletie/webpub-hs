@@ -1,0 +1,5 @@
+*~
+/.cabal-sandbox/
+/cabal.sandbox.config
+/.envrc
+/.cabal-sandbox/add-source-timestamps
