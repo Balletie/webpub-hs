@@ -3,3 +3,5 @@
 /cabal.sandbox.config
 /.envrc
 /.cabal-sandbox/add-source-timestamps
+/dist/
+/*.epub
