@@ -12,7 +12,7 @@ import           Codec.Archive.Zip
 import           Codec.Epub.Parse (getManifest, getSpine)
 
 import           Text.WebPub.IO (getPkgPathXmlFromZip, getTocXmlFromZip)
-import           Text.WebPub.Parse (getToc)
+import           Text.WebPub.Parse (getNcxToc, reverseNcxToc, reverseHtmlToc)
 
 import           System.FilePath (takeDirectory)
 
@@ -35,8 +35,13 @@ main = do
 
     --liftIO $ putStrLn tocXml
 
-    toc <- getToc tocXml
+    toc <- getNcxToc tocXml
+    tocXml' <- reverseNcxToc toc
+    tocHtml <- reverseHtmlToc toc
 
+    liftIO $ putStrLn tocXml
     liftIO $ putStrLn $ show toc
+    liftIO $ putStrLn tocXml'
+    liftIO $ putStrLn tocHtml
 
   either putStrLn return result
