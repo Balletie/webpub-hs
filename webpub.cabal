@@ -60,10 +60,14 @@ executable webpub
   build-depends:       base >=4.9 && <4.10
                      , epub-metadata >= 4 && < 5
                      , mtl == 2.*
+                     , transformers >=0.4 && <0.6
                      , zip-archive
                      , bytestring
+                     , utf8-string
+                     , directory
                      , filepath
-  
+                     , hxt >= 9 && < 10
+
   -- Directories containing source files.
   hs-source-dirs:      src
   main-is:             Text/WebPub.hs

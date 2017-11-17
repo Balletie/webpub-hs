@@ -5,16 +5,16 @@ module Main
   where
 
 import qualified Data.ByteString.Lazy as B
-import qualified Data.ByteString.Lazy.Char8 as C
-import Data.List
-import Codec.Archive.Zip
-import Codec.Epub.IO
-import Codec.Epub.Parse
-import Codec.Epub.Data.Manifest
-import Codec.Epub.Data.Spine
-import Codec.Epub.Format
-import Control.Monad.Except
-import System.FilePath
+
+import           Control.Monad.Except
+
+import           Codec.Archive.Zip
+import           Codec.Epub.Parse (getManifest, getSpine)
+
+import           Text.WebPub.IO (getPkgPathXmlFromZip, getTocXmlFromZip)
+import           Text.WebPub.Parse (getToc)
+
+import           System.FilePath (takeDirectory)
 
 main :: IO ()
 main = do
@@ -23,18 +23,20 @@ main = do
     zipFileBs <- liftIO $ B.readFile epubPath
     zipArchive <- return $ toArchive zipFileBs
 
-    (path, packageXml) <- getPkgPathXmlFromZip epubPath
-    spine <- getSpine packageXml
-    Manifest mis <- getManifest packageXml
+    -- Get the path as well, to find relative paths given in the manifest.
+    (xmlPath, packageXml) <- getPkgPathXmlFromZip zipArchive
 
-    tocItem <- return $ find ((spineToc spine ==) . mfiId) mis
-    tocPath <- return $ mfiHref <$> tocItem
-    tocPath <- return $ (takeDirectory path </>) <$> tocPath
-    let findEntryInArchiveByPath = (flip findEntryByPath) zipArchive
-    zipEntry <- return $ findEntryInArchiveByPath =<< tocPath
-    liftIO $ putStrLn $ maybe
-      ("No file found at " ++ show tocPath)
-      (C.unpack . fromEntry)
-      zipEntry
+    let path = takeDirectory xmlPath
+
+    spine <- getSpine packageXml
+    manifest <- getManifest packageXml
+
+    tocXml <- getTocXmlFromZip manifest spine path zipArchive
+
+    --liftIO $ putStrLn tocXml
+
+    toc <- getToc tocXml
+
+    liftIO $ putStrLn $ show toc
 
   either putStrLn return result
