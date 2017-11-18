@@ -83,10 +83,8 @@ getTocXmlFromZip :: (MonadError String m, MonadIO m)
                  -> m String
 getTocXmlFromZip (Manifest mis) spine path zipArchive = do
     tocItem <- return $ find ((spineToc spine ==) . mfiId) mis
-    tocPath <- return $ (path </>) <$> mfiHref <$> tocItem
-    let findEntryInArchive = (flip findEntryByPath) zipArchive
-    zipEntry <- return $ findEntryInArchive =<< tocPath
-    maybe
-      (throwError $ "No file found at" ++ show tocPath)
-      (return . C.unpack . fromEntry)
-      zipEntry
+    tocItem <- return $ maybe
+      (throwError $ "No table of contents found in manifest.")
+      return tocItem
+    tocPath <- (path </>) <$> mfiHref <$> tocItem
+    fileFromArchive tocPath zipArchive
