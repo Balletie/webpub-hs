@@ -3,14 +3,17 @@ module Text.WebPub.IO
   (
     getPkgPathXmlFromZip
   , getTocXmlFromZip
+  , getDocumentsFromZip
   )
   where
 
-import           Data.List
+import           Data.List (find)
+import           Data.Maybe (catMaybes)
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.ByteString.Lazy.Char8 as C
+import qualified Data.ByteString.Lazy as B
 
-import           Control.Arrow.ListArrows ( (>>>), deep )
+import           Control.Arrow.ListArrows ( (&&&), (>>>), deep )
 import           Control.Monad.Except
 
 import           Text.XML.HXT.Arrow.ReadDocument ( readString )
@@ -20,7 +23,6 @@ import           Text.XML.HXT.Arrow.XmlState ( no, runX, withValidate )
 import           Codec.Archive.Zip
 import           Codec.Epub.Data.Spine
 import           Codec.Epub.Data.Manifest
-import           Codec.Epub.Data.Common
 
 import           System.FilePath
 
@@ -88,3 +90,17 @@ getTocXmlFromZip (Manifest mis) spine path zipArchive = do
       return tocItem
     tocPath <- (path </>) <$> mfiHref <$> tocItem
     fileFromArchive tocPath zipArchive
+
+getDocumentsFromZip :: (MonadIO m)
+                    => Spine            -- ^ The spine that specifies the order of files.
+                    -> Manifest         -- ^ The manifest to find the file locations.
+                    -> Archive          -- ^ The EPUB archive that stores the files.
+                    -> FilePath         -- ^ The directory of the container, to resolve paths.
+                    -> m [(FilePath, B.ByteString)] -- ^ The contents of all the documents.
+getDocumentsFromZip spine (Manifest mis) archive relPath =
+  return $ map (eRelativePath &&& fromEntry) foundEntries
+  where itemRefs = map siIdRef $ spineItemrefs spine
+        maybePaths = map (\ref -> mfiHref <$> find ((ref ==) . mfiId) mis) itemRefs
+        maybeRelPaths = map (fmap (relPath </>)) maybePaths
+        maybeEntries = map (>>= (flip findEntryByPath $ archive)) maybeRelPaths
+        foundEntries = catMaybes maybeEntries
