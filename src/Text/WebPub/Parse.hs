@@ -31,12 +31,14 @@ getNcxToc contents = do
     (r:[]) -> return r
     _      -> throwError $ "Couldn't parse ToC!" ++ show result
 
+reverseToc :: (MonadError String m, MonadIO m) => PU Toc -> Toc -> m String
+reverseToc pu = return . concat . (
+  pickleDoc pu >>> runLA (writeDocumentToString [ withIndent yes
+                                                , withAddDefaultDTD yes
+                                                ]))
+
 reverseHtmlToc :: (MonadError String m, MonadIO m) => Toc -> m String
-reverseHtmlToc toc = return $ showPickled [ withIndent yes
-                                         , withAddDefaultDTD yes
-                                         ] (map HtmlTocTree toc)
+reverseHtmlToc = reverseToc xpHtmlToc
 
 reverseNcxToc :: (MonadError String m, MonadIO m) => Toc -> m String
-reverseNcxToc toc = return $ showPickled [ withIndent yes
-                                         , withAddDefaultDTD yes
-                                         ] (map NcxTocTree toc)
+reverseNcxToc = reverseToc xpNcxToc
