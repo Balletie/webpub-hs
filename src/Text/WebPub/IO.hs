@@ -1,30 +1,34 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Text.WebPub.IO
-  (
-    getPkgPathXmlFromZip
+  ( getPkgPathXmlFromZip
   , getTocXmlFromZip
   , getDocumentsFromZip
+  , makeWebBook
   )
   where
 
-import           Data.List (find)
+import           Data.List (find, map)
 import           Data.Maybe (catMaybes)
+import qualified Data.Map.Lazy as M
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.ByteString.Lazy.Char8 as C
 import qualified Data.ByteString.Lazy as B
 
-import           Control.Arrow.ListArrows ( (&&&), (>>>), deep )
+import           Control.Arrow (first)
 import           Control.Monad.Except
 
-import           Text.XML.HXT.Arrow.ReadDocument ( readString )
-import           Text.XML.HXT.Arrow.XmlArrow ( getAttrValue, hasName, isElem )
-import           Text.XML.HXT.Arrow.XmlState ( no, runX, withValidate )
+import           Text.XML.HXT.Arrow.XmlState.RunIOStateArrow ( initialState )
+import           Text.XML.HXT.Core
+
+import           Text.WebPub.Data.Toc
+import           Text.WebPub.Compile
 
 import           Codec.Archive.Zip
 import           Codec.Epub.Data.Spine
 import           Codec.Epub.Data.Manifest
 
 import           System.FilePath
+import           System.Directory (createDirectoryIfMissing)
 
 {- Ripped from epub-metadata, because it's not exported.
 -}
@@ -104,3 +108,23 @@ getDocumentsFromZip spine (Manifest mis) archive relPath =
         maybeRelPaths = map (fmap (relPath </>)) maybePaths
         maybeEntries = map (>>= (flip findEntryByPath $ archive)) maybeRelPaths
         foundEntries = catMaybes maybeEntries
+
+makeWebBook :: (MonadIO m)
+            => FilePath
+            -> [(FilePath, B.ByteString)]
+            -> Toc
+            -> m ()
+makeWebBook outputDir inputDocuments toc = do
+  (state, result) <- liftIO $ runIOSLA
+    (emptyRoot >>> setTraceLevel 0 >>> compileWebBook inputDocuments' toc) initState undefined
+
+  -- Make everything relative to the output directory.
+  let result' = Data.List.map (first (outputDir </>)) result
+
+  -- Create directories and write out the result
+  liftIO $ mapM_ (createDirectoryIfMissing True . takeDirectory . fst) result'
+  liftIO $ mapM_ (uncurry writeFile) result'
+  where
+    emptyRoot = root [] []
+    inputDocuments' = map (fmap UTF8.toString) inputDocuments
+    initState = initialState $ CompilationState M.empty ""

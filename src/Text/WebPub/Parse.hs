@@ -1,16 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Text.WebPub.Parse
-  ( getNcxToc
-  , reverseNcxToc
-  , reverseHtmlToc
-  )
+  ( getNcxToc )
   where
 
 import Text.XML.HXT.Core
 
 import Text.WebPub.Data.Toc
 import Text.WebPub.Parse.Ncx
-import Text.WebPub.Parse.Html
 import Text.WebPub.Parse.Util
 
 import Control.Arrow.ListArrows ( (>>>), (/>) )
@@ -30,15 +26,3 @@ getNcxToc contents = do
   case result of
     (r:[]) -> return r
     _      -> throwError $ "Couldn't parse ToC!" ++ show result
-
-reverseToc :: (MonadError String m, MonadIO m) => PU Toc -> Toc -> m String
-reverseToc pu = return . concat . (
-  pickleDoc pu >>> runLA (writeDocumentToString [ withIndent yes
-                                                , withAddDefaultDTD yes
-                                                ]))
-
-reverseHtmlToc :: (MonadError String m, MonadIO m) => Toc -> m String
-reverseHtmlToc = reverseToc xpHtmlToc
-
-reverseNcxToc :: (MonadError String m, MonadIO m) => Toc -> m String
-reverseNcxToc = reverseToc xpNcxToc
