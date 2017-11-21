@@ -68,6 +68,7 @@ executable webpub
                      , directory
                      , filepath
                      , hxt >= 9 && < 10
+                     , network-uri
 
   -- Directories containing source files.
   hs-source-dirs:      src

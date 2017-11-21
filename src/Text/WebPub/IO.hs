@@ -18,6 +18,7 @@ import           Control.Arrow (first)
 import           Control.Monad.Except
 
 import           Text.XML.HXT.Arrow.XmlState.RunIOStateArrow ( initialState )
+import           Text.XML.HXT.Arrow.XmlState.TypeDefs ( xioUserState )
 import           Text.XML.HXT.Core
 
 import           Text.WebPub.Data.Toc
@@ -80,7 +81,7 @@ getPkgPathXmlFromZip archive = do
    return (rootPath, rootContents)
 
 -- | Extract the table of contents ncx file from the zip archive by looking
--- through the manifest for the filepath, using the given manifest item ID.
+--   through the manifest for the filepath, using the given manifest item ID.
 getTocXmlFromZip :: (MonadError String m, MonadIO m)
                  => Manifest
                  -> Spine
@@ -111,19 +112,32 @@ getDocumentsFromZip spine (Manifest mis) archive relPath =
 
 makeWebBook :: (MonadIO m)
             => FilePath
+            -> Archive
             -> [(FilePath, B.ByteString)]
             -> Toc
             -> m ()
-makeWebBook outputDir inputDocuments toc = do
+makeWebBook outputDir archive inputDocuments toc = do
   (state, result) <- liftIO $ runIOSLA
     (emptyRoot >>> setTraceLevel 0 >>> compileWebBook inputDocuments' toc) initState undefined
 
-  -- Make everything relative to the output directory.
-  let result' = Data.List.map (first (outputDir </>)) result
+  -- Filter any routed documents that have been transformed.
+  let resultPaths = map fst result
+      filteredRoutes = M.filter (not . (`elem` resultPaths)) (fileRoutes $ xioUserState state)
+      -- Make everything relative to the output directory.
+      fileRoutes' = M.map (outputDir </>) filteredRoutes
+      result' = map (first (outputDir </>)) result
+      allPaths = resultPaths ++ (M.elems fileRoutes')
+
+  liftIO $ putStrLn $ show resultPaths
 
   -- Create directories and write out the result
-  liftIO $ mapM_ (createDirectoryIfMissing True . takeDirectory . fst) result'
+  liftIO $ mapM_ (createDirectoryIfMissing True . takeDirectory) allPaths
   liftIO $ mapM_ (uncurry writeFile) result'
+  -- Extract from the archive any other files that were referenced in the documents.
+  liftIO $ mapM_ (\(k, v) -> maybe
+                             (putStrLn ("Could not find " ++ k ++ "!") >> return ())
+                             (B.writeFile v . fromEntry)
+                             $ findEntryByPath k archive) (M.toList fileRoutes')
   where
     emptyRoot = root [] []
     inputDocuments' = map (fmap UTF8.toString) inputDocuments

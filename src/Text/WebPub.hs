@@ -44,6 +44,6 @@ main = do
     toc <- getNcxToc tocXml
 
     inputDocuments <- getDocumentsFromZip spine manifest zipArchive path
-    makeWebBook outputDir inputDocuments toc
+    makeWebBook outputDir zipArchive inputDocuments toc
 
   either putStrLn return result
